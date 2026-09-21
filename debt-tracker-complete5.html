@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق إدارة الديون</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase-app/10.0.0/firebase-app.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase-firestore/10.0.0/firebase-firestore.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase-auth/10.0.0/firebase-auth.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --tertiary: #f093fb;
+            --success: #11998e;
+            --danger: #ff6b6b;
+            --warning: #ffd93d;
+            --light: #f8f9ff;
+            --dark: #2d3436;
+            --text-light: #e8eaf6;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 20%, #f093fb 50%, #4facfe 80%, #00f2fe 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: slideDownFancy 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .logo-section {
+            background: linear-gradient(135deg, var(--primary), var(--tertiary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 15px;
+        }
+
+        .header h1 {
+            font-size: 3.5em;
+            font-weight: 800;
+            letter-spacing: -2px;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-subtitle {
+            font-size: 1.1em;
+            color: var(--text-light);
+            font-weight: 300;
+            margin-bottom: 30px;
+        }
+
+        .date-showcase {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .date-card {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(15px);
+            padding: 15px 25px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            font-size: 1em;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .date-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.35);
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
+        }
+
+        .user-selector {
+            background: white;
+            border-radius: 25px;
+            padding: 25px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .user-selector h3 {
+            color: var(--dark);
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-selector h3 i {
+            background: linear-gradient(135deg, var(--primary), var(--tertiary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .user-input-group {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .user-input-group input {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e8eaf6;
+            border-radius: 15px;
+            font-size: 1em;
+            transition: all 0.3s;
+            font-family: inherit;
+            background: #f8f9ff;
+        }
+
+        .user-input-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 15px;
+            margin-top: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1000;
+        }
+
+        .autocomplete-list.show {
+            display: block;
+        }
+
+        .autocomplete-item {
+            padding: 12px 18px;
+            border-bottom: 1px solid #e8eaf6;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .autocomplete-item:hover {
+            background: #f8f9ff;
+            padding-right: 25px;
+        }
+
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .autocomplete-item i {
+            color: var(--primary);
+        }
+
+        .current-user-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary), var(--tertiary));
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 700;
+            margin-top: 15px;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 25px;
+            padding: 35px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--tertiary));
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 30px 80px rgba(102, 126, 234, 0.2);
+        }
+
+        .card h2 {
+            color: var(--dark);
+            margin-bottom: 28px;
+            font-size: 1.6em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .card h2 i {
+            background: linear-gradient(135deg, var(--primary), var(--tertiary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 1.8em;
+        }
+
+        .form-group {
+            margin-bottom: 22px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--dark);
+            font-weight: 700;
+            font-size: 0.95em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e8eaf6;
+            border-radius: 15px;
+            font-size: 1em;
+            transition: all 0.3s;
+            font-family: inherit;
+            background: #f8f9ff;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: #bbb;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .form-group input:disabled,
+        .form-group select:disabled,
+        .form-group textarea:disabled {
+            background: #f0f0f0;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 28px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 15px;
+            font-size: 1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        button:active::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--tertiary) 100%);
+            color: white;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success) 0%, #38ef7d 100%);
+            color: white;
+            box-shadow: 0 10px 30px rgba(17, 153, 142, 0.3);
+        }
+
+        .btn-success:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(17, 153, 142, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger) 0%, #ff8787 100%);
+            color: white;
+            box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(255, 107, 107, 0.4);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            margin-top: 28px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--tertiary) 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.2);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 50px rgba(102, 126, 234, 0.3);
+        }
+
+        .stat-value {
+            font-size: 2.2em;
+            font-weight: 800;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            opacity: 0.95;
+            font-weight: 600;
+            position: relative;
+            z-index: 1;
+        }
+
+        .debts-section {
+            background: white;
+            border-radius: 25px;
+            padding: 35px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+            margin-bottom: 40px;
+        }
+
+        .debts-section h2 {
+            color: var(--dark);
+            margin-bottom: 28px;
+            font-size: 1.6em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .debts-section h2 i {
+            background: linear-gradient(135deg, var(--primary), var(--tertiary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .debt-item {
+            background: linear-gradient(135deg, #f8f9ff 0%, #f0e6ff 100%);
+            padding: 22px;
+            border-radius: 20px;
+            margin-bottom: 18px;
+            border: 2px solid transparent;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .debt-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, var(--primary), var(--tertiary));
+        }
+
+        .debt-item:hover {
+            transform: translateX(8px) translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.2);
+        }
+
+        .debt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .debt-name {
+            font-size: 1.3em;
+            font-weight: 800;
+            color: var(--dark);
+            flex: 1;
+        }
+
+        .debt-amount {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--tertiary) 100%);
+            color: white;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-weight: 800;
+            font-size: 0.95em;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+            white-space: nowrap;
+            margin-right: 15px;
+        }
+
+        .debt-status {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 18px;
+            border-radius: 15px;
+            margin: 15px 0;
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 1.1em;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .debt-meta {
+            font-size: 0.9em;
+            color: #666;
+            margin: 12px 0;
+            line-height: 1.8;
+            padding-left: 8px;
+        }
+
+        .debt-meta strong {
+            color: var(--dark);
+            font-weight: 700;
+        }
+
+        .debt-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .debt-actions button {
+            flex: 1;
+            padding: 10px;
+            font-size: 0.85em;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #bbb;
+        }
+
+        .empty-state i {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.4;
+            background: linear-gradient(135deg, var(--primary), var(--tertiary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .empty-state p {
+            font-size: 1.2em;
+            color: #999;
+        }
+
+        .notification {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: white;
+            padding: 18px 25px;
+            border-radius: 18px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            animation: slideInRight 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+        }
+
+        .notification.success {
+            border-left: 4px solid var(--success);
+            color: var(--success);
+        }
+
+        .notification.error {
+            border-left: 4px solid var(--danger);
+            color: var(--danger);
+        }
+
+        .notification i {
+            font-size: 1.3em;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(400px);
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.3s;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 35px;
+            border-radius: 25px;
+            max-width: 550px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+            animation: slideUpModal 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .modal-content h2 {
+            color: var(--dark);
+            margin-bottom: 25px;
+            font-size: 1.8em;
+        }
+
+        @keyframes slideUpModal {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideDownFancy {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .user-list-badge {
+            display: inline-block;
+            background: #f8f9ff;
+            padding: 8px 15px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            margin-right: 10px;
+            margin-top: 10px;
+            color: var(--primary);
+            font-weight: 600;
+            border: 1px solid #e8eaf6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo-section">
+                <h1>💎 إدارة الديون</h1>
+            </div>
+            <p class="header-subtitle">تطبيق حديث لتتبع وإدارة ديونك بسهولة وأمان</p>
+            <div class="date-showcase">
+                <div class="date-card">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span id="today-date"></span>
+                </div>
+                <div class="date-card">
+                    <i class="fas fa-clock"></i>
+                    <span id="full-date"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="user-selector">
+            <h3><i class="fas fa-user-check"></i> اختر المستخدم</h3>
+            <div class="user-input-group" id="userInputGroup">
+                <input type="text" id="user-input" placeholder="ابدأ بكتابة الاسم... (أو انقر لاختيار)" autocomplete="off">
+                <div class="autocomplete-list" id="autocompleteList"></div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn-primary" onclick="saveUserName()" style="flex: 1; padding: 14px;">
+                    <i class="fas fa-check"></i> حفظ الاسم
+                </button>
+            </div>
+            <div id="currentUser"></div>
+            <div id="usersList"></div>
+        </div>
+
+        <div class="main-grid">
+            <div class="card">
+                <h2><i class="fas fa-plus-circle"></i> إضافة دين جديد</h2>
+                
+                <div class="form-group">
+                    <label>💰 المبلغ (شيقل)</label>
+                    <input type="number" id="debt-amount" placeholder="0.00" min="0" step="0.01">
+                </div>
+
+                <div class="form-group">
+                    <label>📊 حالة الدين</label>
+                    <select id="debt-status">
+                        <option value="نشط">🔴 نشط</option>
+                        <option value="معلق">⚠️ معلق</option>
+                        <option value="تم السداد">✅ تم السداد</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>📝 ملاحظات</label>
+                    <textarea id="debt-notes" placeholder="أضف ملاحظات إضافية..." rows="3"></textarea>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="addDebt()">
+                        <i class="fas fa-save"></i> حفظ الدين
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><i class="fas fa-chart-bar"></i> الإحصائيات</h2>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-amount">0</div>
+                        <div class="stat-label">إجمالي الديون (شيقل)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="active-count">0</div>
+                        <div class="stat-label">ديون نشطة</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 28px;">
+                    <button class="btn-primary" onclick="showAllDebts()" style="width: 100%;">
+                        <i class="fas fa-eye"></i> عرض جميع الديون
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="debts-section">
+            <h2><i class="fas fa-list"></i> الديون المسجلة اليوم</h2>
+            <div id="debts-list"></div>
+        </div>
+    </div>
+
+    <div class="modal" id="allDebtsModal">
+        <div class="modal-content">
+            <h2>📋 جميع الديون</h2>
+            <div id="all-debts-content"></div>
+            <button class="btn-danger" onclick="closeModal()" style="margin-top: 25px; width: 100%;">
+                إغلاق
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let db, auth, currentUser;
+        let currentUserName = null;
+        let allUsers = [];
+        let useLocalStorage = false;
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAYnfFs6KiSCXeCQ5bPYIJ-R6J3ZxJFVCI",
+            authDomain: "sms1-8ed92.firebaseapp.com",
+            projectId: "sms1-8ed92",
+            storageBucket: "sms1-8ed92.firebasestorage.app",
+            messagingSenderId: "684436496832",
+            appId: "1:684436496832:web:c990b3b77dba7134332825",
+            measurementId: "G-5KVXJ8L2CE"
+        };
+
+        try {
+            const app = firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch (e) {
+            console.log("استخدام LocalStorage:", e);
+            useLocalStorage = true;
+        }
+
+        if (!useLocalStorage && auth) {
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    currentUser = user;
+                    initApp();
+                } else {
+                    loginAnonymously();
+                }
+            });
+        } else {
+            useLocalStorage = true;
+            currentUser = { uid: 'anonymous' };
+            initApp();
+        }
+
+        function loginAnonymously() {
+            if (auth) {
+                auth.signInAnonymously().catch(error => {
+                    console.log("خطأ:", error);
+                    useLocalStorage = true;
+                    initApp();
+                });
+            }
+        }
+
+        function initApp() {
+            initDate();
+            initSession();
+            loadAllUsers();
+            
+            // تحميل اسم المستخدم من الجلسة الحالية إذا كان موجوداً
+            const sessionUser = sessionStorage.getItem('currentSessionUser');
+            if (sessionUser) {
+                selectUser(sessionUser);
+            }
+        }
+
+        function initDate() {
+            const today = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const dateString = today.toLocaleDateString('ar-SA', options);
+            
+            document.getElementById('today-date').textContent = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+            document.getElementById('full-date').textContent = dateString;
+        }
+
+        function getLocalDebts() {
+            const debts = localStorage.getItem('debts');
+            return debts ? JSON.parse(debts) : [];
+        }
+
+        function getLocalUsers() {
+            const users = localStorage.getItem('users');
+            return users ? JSON.parse(users) : [];
+        }
+
+        function loadAllUsers() {
+            allUsers = getLocalUsers();
+            updateUsersList();
+            setupUserAutocomplete();
+        }
+
+        function setupUserAutocomplete() {
+            const userInput = document.getElementById('user-input');
+            const autocompleteList = document.getElementById('autocompleteList');
+
+            userInput.addEventListener('input', (e) => {
+                const value = e.target.value.trim();
+                
+                if (!value) {
+                    autocompleteList.classList.remove('show');
+                    return;
+                }
+
+                const filtered = allUsers.filter(user => 
+                    user.toLowerCase().startsWith(value.toLowerCase())
+                );
+
+                if (filtered.length > 0) {
+                    autocompleteList.innerHTML = filtered.map(user => `
+                        <div class="autocomplete-item" onclick="selectUser('${user}')">
+                            <i class="fas fa-check-circle"></i>
+                            ${user}
+                        </div>
+                    `).join('');
+                    autocompleteList.classList.add('show');
+                } else if (value.length >= 2) {
+                    // التحقق من عدم وجود اسم مكرر
+                    if (allUsers.includes(value)) {
+                        autocompleteList.innerHTML = `
+                            <div class="autocomplete-item" style="pointer-events: none; color: #ff6b6b;">
+                                <i class="fas fa-times-circle"></i>
+                                <strong>هذا الاسم موجود بالفعل!</strong>
+                            </div>
+                        `;
+                    } else {
+                        // إضافة خيار "إضافة مستخدم جديد"
+                        autocompleteList.innerHTML = `
+                            <div class="autocomplete-item" onclick="selectUser('${value}')">
+                                <i class="fas fa-plus-circle"></i>
+                                <strong>إضافة مستخدم جديد: ${value}</strong>
+                            </div>
+                        `;
+                    }
+                    autocompleteList.classList.add('show');
+                } else {
+                    autocompleteList.classList.remove('show');
+                }
+            });
+
+            // حفظ تلقائي عند الضغط على Enter
+            userInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const value = e.target.value.trim();
+                    if (value && !allUsers.includes(value)) {
+                        selectUser(value);
+                    } else if (allUsers.includes(value)) {
+                        showNotification('❌ هذا الاسم موجود بالفعل!', 'error');
+                    }
+                }
+            });
+
+            userInput.addEventListener('focus', () => {
+                if (allUsers.length > 0) {
+                    autocompleteList.innerHTML = allUsers.map(user => `
+                        <div class="autocomplete-item" onclick="selectUser('${user}')">
+                            <i class="fas fa-user-circle"></i>
+                            ${user}
+                        </div>
+                    `).join('');
+                    autocompleteList.classList.add('show');
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (e.target !== userInput && !e.target.closest('.autocomplete-list')) {
+                    autocompleteList.classList.remove('show');
+                }
+            });
+        }
+
+        function saveUserName() {
+            const userInput = document.getElementById('user-input');
+            const value = userInput.value.trim();
+            
+            if (!value) {
+                showNotification('❌ يجب إدخال اسم أولاً', 'error');
+                return;
+            }
+            
+            if (allUsers.includes(value)) {
+                showNotification('❌ هذا الاسم موجود بالفعل!', 'error');
+                return;
+            }
+            
+            selectUser(value);
+        }
+
+        function selectUser(userName) {
+            if (!userName || userName.trim() === '') {
+                showNotification('❌ يجب إدخال اسم صحيح', 'error');
+                return;
+            }
+
+            currentUserName = userName.trim();
+            document.getElementById('autocompleteList').classList.remove('show');
+            
+            // إخفاء حقل الإدخال بالكامل
+            document.getElementById('userInputGroup').style.display = 'none';
+            
+            // إضافة المستخدم إلى القائمة إذا لم يكن موجوداً وحفظه فوراً
+            if (!allUsers.includes(currentUserName)) {
+                allUsers.push(currentUserName);
+                allUsers.sort();
+                localStorage.setItem('users', JSON.stringify(allUsers));
+                updateUsersList();
+                showNotification(`✅ تم حفظ المستخدم الجديد: ${currentUserName}`, 'success');
+            } else {
+                showNotification(`✅ مرحباً ${currentUserName}!`, 'success');
+            }
+            
+            // حفظ اسم المستخدم في الجلسة الحالية
+            sessionStorage.setItem('currentSessionUser', currentUserName);
+            
+            updateCurrentUserDisplay();
+            loadDebts();
+        }
+
+        function updateCurrentUserDisplay() {
+            const currentUserDiv = document.getElementById('currentUser');
+            
+            if (currentUserName) {
+                // عرض بطاقة المستخدم بشكل كبير وواضح
+                currentUserDiv.innerHTML = `
+                    <div style="background: linear-gradient(135deg, var(--primary) 0%, var(--tertiary) 100%); color: white; padding: 25px; border-radius: 20px; text-align: center; box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3); margin-bottom: 20px;">
+                        <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 8px;">المستخدم الحالي</div>
+                        <div style="font-size: 2.2em; font-weight: 800; margin-bottom: 5px;">👤 ${currentUserName}</div>
+                        <div style="font-size: 0.85em; opacity: 0.85;">جميع البيانات محفوظة بهذا الاسم</div>
+                    </div>
+                `;
+                document.getElementById('debt-amount').disabled = false;
+                document.getElementById('debt-status').disabled = false;
+                document.getElementById('debt-notes').disabled = false;
+                document.querySelector('.btn-primary').disabled = false;
+            } else {
+                currentUserDiv.innerHTML = '';
+                document.getElementById('debt-amount').disabled = true;
+                document.getElementById('debt-status').disabled = true;
+                document.getElementById('debt-notes').disabled = true;
+                document.querySelector('.btn-primary').disabled = true;
+            }
+        }
+
+        function updateUsersList() {
+            const usersList = document.getElementById('usersList');
+            if (allUsers.length > 0) {
+                usersList.innerHTML = `
+                    <div style="margin-top: 15px;">
+                        <strong style="color: var(--dark); font-size: 0.9em;">المستخدمون المسجلون:</strong>
+                        <div style="margin-top: 10px;">
+                            ${allUsers.map(user => `<span class="user-list-badge">${user}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        async function addDebt() {
+            if (!currentUserName) {
+                showNotification('❌ يجب اختيار مستخدم أولاً', 'error');
+                return;
+            }
+
+            const amount = parseFloat(document.getElementById('debt-amount').value);
+            const status = document.getElementById('debt-status').value;
+            const notes = document.getElementById('debt-notes').value.trim();
+
+            if (!amount || amount <= 0) {
+                showNotification('يرجى إدخال مبلغ صحيح', 'error');
+                return;
+            }
+
+            try {
+                const debt = {
+                    id: Date.now().toString(),
+                    name: currentUserName,
+                    amount,
+                    status,
+                    notes,
+                    date: new Date().toISOString(),
+                    userId: currentUser?.uid || 'anonymous'
+                };
+
+                if (useLocalStorage) {
+                    const debts = getLocalDebts();
+                    debts.push(debt);
+                    localStorage.setItem('debts', JSON.stringify(debts));
+                    showNotification('✅ تم إضافة الدين بنجاح', 'success');
+                } else {
+                    const debts = getLocalDebts();
+                    debts.push(debt);
+                    localStorage.setItem('debts', JSON.stringify(debts));
+                    
+                    try {
+                        await db.collection('debts').add(debt);
+                        showNotification('✅ تم إضافة الدين وحفظه في السحابة', 'success');
+                    } catch (e) {
+                        const offlineDebts = JSON.parse(localStorage.getItem('offlineDebts') || '[]');
+                        offlineDebts.push(debt);
+                        localStorage.setItem('offlineDebts', JSON.stringify(offlineDebts));
+                        showNotification('✅ تم إضافة الدين (سيتم المزامقة عند الاتصال)', 'success');
+                    }
+                }
+                
+                document.getElementById('debt-amount').value = '';
+                document.getElementById('debt-status').value = 'نشط';
+                document.getElementById('debt-notes').value = '';
+
+                loadDebts();
+            } catch (e) {
+                showNotification('❌ خطأ: ' + e.message, 'error');
+            }
+        }
+
+        async function loadDebts() {
+            try {
+                if (useLocalStorage) {
+                    const debts = getLocalDebts();
+                    const filtered = debts.filter(d => d.name === currentUserName);
+                    updateUI(filtered);
+                } else if (db) {
+                    const debts = getLocalDebts();
+                    const filtered = debts.filter(d => d.name === currentUserName);
+                    updateUI(filtered);
+                }
+            } catch (e) {
+                console.log("خطأ:", e);
+            }
+        }
+
+        function updateUI(debts) {
+            const container = document.getElementById('debts-list');
+            const today = new Date().toLocaleDateString('ar-SA');
+
+            const todayDebts = debts.filter(d => {
+                const debtDate = typeof d.date === 'string' ? new Date(d.date) : d.date.toDate?.() || d.date;
+                return new Date(debtDate).toLocaleDateString('ar-SA') === today;
+            });
+
+            if (todayDebts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>لم تسجل أي ديون اليوم</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = todayDebts.map(debt => `
+                    <div class="debt-item">
+                        <div class="debt-header">
+                            <div class="debt-name">${debt.name}</div>
+                            <div class="debt-amount">💵 ${debt.amount.toFixed(2)} شيقل</div>
+                        </div>
+                        <div class="debt-status">✓ انتهى اليوم</div>
+                        <div class="debt-meta">
+                            <strong>📊 الحالة:</strong> ${debt.status}
+                            ${debt.notes ? `<br><strong>📝 الملاحظات:</strong> ${debt.notes}` : ''}
+                        </div>
+                        <div class="debt-actions">
+                            <button class="btn-success" onclick="updateStatus('${debt.id}')">
+                                <i class="fas fa-check"></i> تم السداد
+                            </button>
+                            <button class="btn-danger" onclick="deleteDebt('${debt.id}')">
+                                <i class="fas fa-trash"></i> حذف
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const totalAmount = debts.reduce((sum, d) => sum + d.amount, 0);
+            const activeCount = debts.filter(d => d.status === 'نشط').length;
+            
+            document.getElementById('total-amount').textContent = totalAmount.toFixed(2);
+            document.getElementById('active-count').textContent = activeCount;
+        }
+
+        async function deleteDebt(id) {
+            if (confirm('هل تريد حذف هذا الدين؟')) {
+                try {
+                    let debts = getLocalDebts();
+                    debts = debts.filter(d => d.id !== id);
+                    localStorage.setItem('debts', JSON.stringify(debts));
+                    showNotification('✅ تم حذف الدين', 'success');
+                    loadDebts();
+                } catch (e) {
+                    showNotification('❌ خطأ: ' + e.message, 'error');
+                }
+            }
+        }
+
+        async function updateStatus(id) {
+            try {
+                let debts = getLocalDebts();
+                debts = debts.map(d => d.id === id ? { ...d, status: 'تم السداد' } : d);
+                localStorage.setItem('debts', JSON.stringify(debts));
+                showNotification('✅ تم تحديث الحالة', 'success');
+                loadDebts();
+            } catch (e) {
+                showNotification('❌ خطأ: ' + e.message, 'error');
+            }
+        }
+
+        async function showAllDebts() {
+            if (!currentUserName) {
+                showNotification('❌ يجب اختيار مستخدم أولاً', 'error');
+                return;
+            }
+
+            try {
+                let debts = getLocalDebts().filter(d => d.name === currentUserName);
+
+                let html = '';
+                debts.forEach(debt => {
+                    const date = typeof debt.date === 'string' ? new Date(debt.date) : debt.date.toDate?.() || debt.date;
+                    html += `
+                        <div style="padding: 18px; border-bottom: 1px solid #e8eaf6; border-radius: 12px; margin-bottom: 12px; background: #f8f9ff;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <strong style="color: var(--dark); font-size: 1.05em;">${debt.name}</strong>
+                                <span style="background: linear-gradient(135deg, var(--primary), var(--tertiary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 800;">
+                                    ${debt.amount.toFixed(2)} شيقل
+                                </span>
+                            </div>
+                            <small style="color: #999; font-weight: 600;">
+                                📊 ${debt.status} • 📅 ${new Date(date).toLocaleDateString('ar-SA')}
+                            </small>
+                        </div>
+                    `;
+                });
+
+                document.getElementById('all-debts-content').innerHTML = html || '<p style="text-align: center; color: #999; padding: 30px;">لا توجد ديون</p>';
+                document.getElementById('allDebtsModal').classList.add('active');
+            } catch (e) {
+                showNotification('❌ خطأ: ' + e.message, 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('allDebtsModal').classList.remove('active');
+        }
+
+        function showNotification(message, type) {
+            const notif = document.createElement('div');
+            notif.className = `notification ${type}`;
+            notif.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+            document.body.appendChild(notif);
+
+            setTimeout(() => {
+                notif.remove();
+            }, 3500);
+        }
+
+        // نظام الإغلاق والتذكيرات
+        let sessionClosingTime = null;
+        let reminderShown = false;
+
+        function initSession() {
+            const today = new Date();
+            sessionClosingTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 0, 0);
+            
+            setInterval(checkSessionTime, 60000);
+            checkSessionTime();
+        }
+
+        function checkSessionTime() {
+            const now = new Date();
+            const timeUntilClose = sessionClosingTime - now;
+            const hoursLeft = Math.floor(timeUntilClose / (1000 * 60 * 60));
+            const minutesLeft = Math.floor((timeUntilClose % (1000 * 60 * 60)) / (1000 * 60));
+
+            if (hoursLeft === 0 && minutesLeft <= 60 && minutesLeft > 0) {
+                if (minutesLeft % 10 === 0) {
+                    showReminderBar(minutesLeft);
+                }
+            }
+
+            if (now.getHours() === 23 && now.getMinutes() === 0) {
+                closeSession();
+            }
+        }
+
+        function showReminderBar(minutesLeft) {
+            const reminderBar = document.createElement('div');
+            reminderBar.style.cssText = `
+                position: fixed;
+                right: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 350px;
+                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+                color: white;
+                padding: 25px;
+                border-radius: 20px 0 0 20px;
+                box-shadow: 0 10px 40px rgba(255, 107, 107, 0.3);
+                z-index: 5000;
+                animation: slideInRight 0.4s ease-out;
+                font-weight: 600;
+                border-left: 4px solid white;
+            `;
+            
+            reminderBar.innerHTML = `
+                <div style="font-size: 1.3em; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-bell"></i> تنبيه مهم
+                </div>
+                <div style="font-size: 1em; margin-bottom: 10px;">
+                    سيتم إغلاق الديون الساعة 11 ليلاً
+                </div>
+                <div style="font-size: 0.95em; opacity: 0.95;">
+                    ⏰ متبقي: <strong>${minutesLeft}</strong> دقيقة فقط
+                </div>
+                <div style="margin-top: 15px; font-size: 0.85em; opacity: 0.9;">
+                    أضف ديونك الآن قبل الإغلاق!
+                </div>
+            `;
+
+            document.body.appendChild(reminderBar);
+
+            setTimeout(() => {
+                reminderBar.style.animation = 'slideOutRight 0.4s ease-out';
+                setTimeout(() => reminderBar.remove(), 400);
+            }, 5000);
+        }
+
+        function closeSession() {
+            const debts = getLocalDebts();
+            
+            if (debts.length > 0) {
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.7);
+                    z-index: 9999;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                `;
+                
+                modal.innerHTML = `
+                    <div style="background: white; padding: 40px; border-radius: 25px; max-width: 600px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                        <div style="font-size: 3em; margin-bottom: 20px;">🔒</div>
+                        <h2 style="color: #2d3436; margin-bottom: 15px; font-size: 1.8em;">تم إغلاق الجلسة</h2>
+                        <p style="color: #666; font-size: 1.1em; margin-bottom: 20px;">
+                            تم إغلاق تسجيل الديون الساعة 11 ليلاً
+                        </p>
+                        <div style="background: #f8f9ff; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                            <strong style="color: var(--primary); font-size: 1.2em;">
+                                عدد الديون المسجلة: ${debts.length}
+                            </strong>
+                        </div>
+                        <p style="color: #999; font-size: 0.95em;">
+                            يمكنك مراجعة ديونك غداً من الساعة 12 صباحاً
+                        </p>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                document.getElementById('debt-amount').disabled = true;
+                document.getElementById('debt-status').disabled = true;
+                document.getElementById('debt-notes').disabled = true;
+                Array.from(document.querySelectorAll('button.btn-primary')).forEach(btn => btn.disabled = true);
+            }
+        }
+
+        window.addEventListener('load', () => {
+            initDate();
+            initSession();
+        });
+    </script>
+</body>
+</html>
